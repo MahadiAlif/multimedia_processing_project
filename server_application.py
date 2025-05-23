@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file, render_template
 import os
 
+# Import your filter modules
 from audio_filter import apply_audio_filter
 from video_filter import apply_video_filter
 
@@ -13,6 +14,7 @@ os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 VIDEO_PATH = os.path.join(UPLOAD_FOLDER, 'input.mp4')
 OUTPUT_PATH = os.path.join(PROCESSED_FOLDER, 'output.mp4')
 
+# Store single filter only
 CURRENT_FILTER = None
 
 @app.route('/')
@@ -29,9 +31,10 @@ def upload():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
     
-    # Delete existing video first (only one video at a time)
-    if os.path.exists(VIDEO_PATH):
-        os.remove(VIDEO_PATH)
+    # Delete existing files first (only one video at a time)
+    for path in [VIDEO_PATH, OUTPUT_PATH]:
+        if os.path.exists(path):
+            os.remove(path)
     
     try:
         file.save(VIDEO_PATH)
@@ -43,10 +46,13 @@ def upload():
 
 @app.route('/delete', methods=['DELETE'])
 def delete():
+    global CURRENT_FILTER
     try:
-        if os.path.exists(VIDEO_PATH):
-            os.remove(VIDEO_PATH)
-            print(f"Deleted: {VIDEO_PATH}")
+        for path in [VIDEO_PATH, OUTPUT_PATH]:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"Deleted: {path}")
+        CURRENT_FILTER = None  # Reset filter selection
         return jsonify({'message': 'Video deleted successfully'}), 200
     except Exception as e:
         print(f"Delete error: {e}")
@@ -59,8 +65,8 @@ def configure():
         data = request.get_json()
         filter_name = data.get('filter', None)
         
-        # Validate filter
-        available_filters = ['preemphasis', 'grayscale']
+        # Validate filter - Updated to use correct filter names
+        available_filters = ['voice_enhancement', 'grayscale']
         if filter_name not in available_filters:
             return jsonify({'error': f'Invalid filter. Available: {available_filters}'}), 400
         
@@ -96,13 +102,13 @@ def apply():
         if not os.path.exists(input_path):
             return jsonify({'error': f'Input video file not found: {input_path}'}), 400
         
-        # Apply single filter
+        # Apply single filter - Updated filter names
         success = False
         message = ""
         
-        if CURRENT_FILTER == 'preemphasis':
-            print("Applying pre-emphasis audio filter")
-            success, message = apply_audio_filter('preemphasis', input_path, output_path, alpha=0.97)
+        if CURRENT_FILTER == 'voice_enhancement':
+            print("Applying voice enhancement filter (pre-emphasis + band-pass)")
+            success, message = apply_audio_filter('voice_enhancement', input_path, output_path, alpha=0.97)
             
         elif CURRENT_FILTER == 'grayscale':
             print("Applying grayscale video filter")
@@ -124,7 +130,7 @@ def apply():
     except Exception as e:
         print(f"Apply error: {e}")
         return jsonify({'error': f'Processing failed: {str(e)}'}), 500
-    
+
 @app.route('/stream', methods=['GET'])
 def stream():
     print("Stream request received")
@@ -145,90 +151,15 @@ def stream():
     except Exception as e:
         print(f"Stream error: {e}")
         return jsonify({'error': f'Streaming failed: {str(e)}'}), 500
-# Debug endpoint
+
+# Enhanced debug endpoint
 @app.route('/status', methods=['GET'])
 def status():
     return jsonify({
         'video_uploaded': os.path.exists(VIDEO_PATH),
         'video_processed': os.path.exists(OUTPUT_PATH),
         'current_filter': CURRENT_FILTER,
-        'available_filters': ['preemphasis', 'grayscale']
-    })
-
-# Set max file size to 100MB
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-
-from flask import Flask, request, jsonify, send_file, render_template
-import os
-
-app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-VIDEO_PATH = os.path.join(UPLOAD_FOLDER, 'input.mp4')
-
-@app.route('/')
-def index():
-    return render_template('project_template.html')
-
-@app.route('/upload', methods=['POST'])
-def upload():
-    print("Upload request received")
-    if 'video' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['video']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    # Delete existing video first (only one video at a time)
-    if os.path.exists(VIDEO_PATH):
-        os.remove(VIDEO_PATH)
-    
-    try:
-        file.save(VIDEO_PATH)
-        print(f"File saved to {VIDEO_PATH}")
-        return jsonify({'message': 'Video uploaded successfully'}), 200
-    except Exception as e:
-        print(f"Upload error: {e}")
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-@app.route('/delete', methods=['DELETE'])
-def delete():
-    try:
-        if os.path.exists(VIDEO_PATH):
-            os.remove(VIDEO_PATH)
-            print(f"Deleted: {VIDEO_PATH}")
-        return jsonify({'message': 'Video deleted successfully'}), 200
-    except Exception as e:
-        print(f"Delete error: {e}")
-        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
-
-@app.route('/stream', methods=['GET'])
-def stream():
-    print("Stream request received")
-    print(f"VIDEO_PATH exists: {os.path.exists(VIDEO_PATH)}")
-    
-    try:
-        if os.path.exists(VIDEO_PATH):
-            print(f"Serving video: {VIDEO_PATH}")
-            return send_file(VIDEO_PATH, mimetype='video/mp4', conditional=True)
-        else:
-            print("No video file found")
-            return jsonify({'error': 'No video available'}), 404
-    except Exception as e:
-        print(f"Stream error: {e}")
-        return jsonify({'error': f'Streaming failed: {str(e)}'}), 500
-
-# Debug endpoint
-@app.route('/status', methods=['GET'])
-def status():
-    return jsonify({
-        'video_uploaded': os.path.exists(VIDEO_PATH),
-        'video_path': VIDEO_PATH
+        'available_filters': ['voice_enhancement', 'grayscale']
     })
 
 # Set max file size to 100MB
