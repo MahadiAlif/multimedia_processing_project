@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Processing Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-5px);
+        }
+
+        .section h2 {
+            color: #5a67d8;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #5a67d8;
+            background: #edf2f7;
+        }
+
+        .file-input {
+            margin: 15px 0;
+        }
+
+        .file-input input[type="file"] {
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            background: white;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #68d391 0%, #48bb78 100%);
+        }
+
+        .filter-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .filter-group h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            background: white;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .filters-list {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .filters-list h4 {
+            color: #4a5568;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .video-container {
+            text-align: center;
+            background: #1a202c;
+            border-radius: 15px;
+            padding: 20px;
+            display: none;
+        }
+
+        video {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .params {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+        }
+
+        .param-group {
+            margin: 10px 0;
+        }
+
+        .param-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .param-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .filter-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 AI Video Processing Server</h1>
+
+        <!-- Upload Section -->
+        <div class="section">
+            <h2>📤 Upload Video</h2>
+            <div class="upload-area">
+                <p>Choose a video file to process</p>
+                <div class="file-input">
+                    <input type="file" id="uploadVideo" accept="video/*">
+                </div>
+                <button class="btn" onclick="uploadVideo()">Upload Video</button>
+                <button class="btn btn-danger" onclick="deleteVideo()">Delete Video</button>
+            </div>
+            <div id="uploadStatus" class="status" style="display: none;"></div>
+            <div id="deleteStatus" class="status" style="display: none;"></div>
+        </div>
+
+        <!-- Filter Configuration -->
+        <div class="section">
+            <h2>⚙️ Configure Filters</h2>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <h3>Audio Filters</h3>
+                    <select id="audioFilter" onchange="showAudioParams()">
+                        <option value="">Select Audio Filter</option>
+                        <option value="gainCompressor">Gain Compressor</option>
+                        <option value="voiceEnhancement">Voice Enhancement</option>
+                        <option value="denoiseDelay">Denoise & Delay</option>
+                        <option value="car">Car Effect</option>
+                        <option value="phone">Phone Effect</option>
+                    </select>
+                    <div id="audioParams" class="params">
+                        <div id="gainCompressorParams" class="params">
+                            <div class="param-group">
+                                <label>Compressor Threshold:</label>
+                                <input type="number" id="gainCompressorThreshold" value="-20" step="0.1">
+                            </div>
+                            <div class="param-group">
+                                <label>Limiter Threshold:</label>
+                                <input type="number" id="limiterThreshold" value="-3" step="0.1">
+                            </div>
+                        </div>
+                        <div id="voiceEnhancementParams" class="params">
+                            <div class="param-group">
+                                <label>Pre-emphasis Alpha:</label>
+                                <input type="number" id="preemphasisAlpha" value="0.97" step="0.01">
+                            </div>
+                            <div class="param-group">
+                                <label>High Pass Filter:</label>
+                                <input type="number" id="highPassFilter" value="80" step="1">
+                            </div>
+                        </div>
+                        <div id="denoiseDelayParams" class="params">
+                            <div class="param-group">
+                                <label>Noise Power:</label>
+                                <input type="number" id="noisePower" value="0.1" step="0.01">
+                            </div>
+                            <div class="param-group">
+                                <label>Delay (ms):</label>
+                                <input type="number" id="delay" value="100" step="10">
+                            </div>
+                            <div class="param-group">
+                                <label>Delay Gain:</label>
+                                <input type="number" id="delayGain" value="0.3" step="0.1">
+                            </div>
+                        </div>
+                        <div id="carParams" class="params">
+                            <div class="param-group">
+                                <label>Filter Order:</label>
+                                <input type="number" id="carFilterOrder" value="2" step="1">
+                            </div>
+                            <div class="param-group">
+                                <label>Side Gain:</label>
+                                <input type="number" id="carSideGain" value="0.5" step="0.1">
+                            </div>
+                        </div>
+                        <div id="phoneParams" class="params">
+                            <div class="param-group">
+                                <label>Filter Order:</label>
+                                <input type="number" id="phoneFilterOrder" value="4" step="1">
+                            </div>
+                            <div class="param-group">
+                                <label>Side Gain:</label>
+                                <input type="number" id="phoneSideGain" value="0.3" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addAudioFilter()">Add Audio Filter</button>
+                </div>
+
+                <div class="filter-group">
+                    <h3>Video Filters</h3>
+                    <select id="videoFilter" onchange="showVideoParams()">
+                        <option value="">Select Video Filter</option>
+                        <option value="grayscale">Grayscale</option>
+                        <option value="frameInterpolate">Frame Interpolation</option>
+                        <option value="upscale">Upscale</option>
+                    </select>
+                    <div id="videoParams" class="params">
+                        <div id="frameInterpolateParams" class="params">
+                            <div class="param-group">
+                                <label>Target FPS:</label>
+                                <input type="number" id="frameInterpolateTargetFps" value="60" step="1">
+                            </div>
+                        </div>
+                        <div id="upscaleParams" class="params">
+                            <div class="param-group">
+                                <label>Target Width:</label>
+                                <input type="number" id="upscaleTargetWidth" value="1920" step="1">
+                            </div>
+                            <div class="param-group">
+                                <label>Target Height:</label>
+                                <input type="number" id="upscaleTargetHeight" value="1080" step="1">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addVideoFilter()">Add Video Filter</button>
+                </div>
+            </div>
+
+            <div id="filtersListContainer" style="display: none;">
+                <h3>📋 Applied Filters:</h3>
+                <div id="filtersList" class="filters-list"></div>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" onclick="configureFilters()">Configure Filters</button>
+                <button class="btn btn-success" onclick="applyFilters()">Apply Filters</button>
+                <button class="btn btn-danger" onclick="clean()">Clear All Filters</button>
+            </div>
+        </div>
+
+        <!-- Video Player -->
+        <div class="section">
+            <h2>🎥 Video Player</h2>
+            <div style="text-align: center;">
+                <button class="btn" onclick="stream()">Load Video</button>
+            </div>
+            <div id="videoContainer" class="video-container">
+                <video controls width="100%" height="auto">
+                    <source src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var filterList = [];
+
+        const refreshFiltersList = () => {
+            const h4Node = (text) => `<h4>${text}</h4>\n`;
+            const divNodeContainer = document.getElementById("filtersListContainer");
+            const divNode = document.getElementById("filtersList");
+            if (filterList.length === 0) {
+                divNodeContainer.style.display = "none";
+            } else {
+                divNodeContainer.style.display = "block";
+                divNode.innerHTML = "";
+                for (const filter of filterList) {
+                    let s = `${filter.name}: `;
+                    for (const prop of filter.props) {
+                        s += `${prop.name}=${prop.value}, `;
+                    }
+                    divNode.innerHTML += h4Node(s.trim());
+                }
+            }
+        };
+
+        const getProp = (prop_name) => ({ name: prop_name, value: document.getElementById(prop_name).value });
+
+        const clean = () => {
+            filterList = [];
+            refreshFiltersList();
+        };
+
+        const addVideoFilter = () => {
+            const videoFilterSelect = document.getElementById("videoFilter");
+            const selectedVideoFilter = videoFilterSelect.value;
+            if (!selectedVideoFilter) return;
+            
+            const filterConfig = { name: selectedVideoFilter, props: [] };
+            if (selectedVideoFilter === "frameInterpolate") {
+                filterConfig.props.push(getProp("frameInterpolateTargetFps"));
+            } else if (selectedVideoFilter === "upscale") {
+                filterConfig.props.push(getProp("upscaleTargetWidth"), getProp("upscaleTargetHeight"));
+            }
+            filterList.push(filterConfig);
+            refreshFiltersList();
+        };
+
+        const addAudioFilter = () => {
+            const audioFilterSelect = document.getElementById("audioFilter");
+            const selectedAudioFilter = audioFilterSelect.value;
+            if (!selectedAudioFilter) return;
+            
+            const filterConfig = { name: selectedAudioFilter, props: [] };
+            if (selectedAudioFilter === "gainCompressor") {
+                filterConfig.props.push(getProp("gainCompressorThreshold"), getProp("limiterThreshold"));
+            } else if (selectedAudioFilter === "voiceEnhancement") {
+                filterConfig.props.push(getProp("preemphasisAlpha"), getProp("highPassFilter"));
+            } else if (selectedAudioFilter === "denoiseDelay") {
+                filterConfig.props.push(getProp("noisePower"), getProp("delay"), getProp("delayGain"));
+            } else if (selectedAudioFilter === "car") {
+                filterConfig.props.push(getProp("carFilterOrder"), getProp("carSideGain"));
+            } else if (selectedAudioFilter === "phone") {
+                filterConfig.props.push(getProp("phoneFilterOrder"), getProp("phoneSideGain"));
+            }
+            filterList.push(filterConfig);
+            refreshFiltersList();
+        };
+
+        const showHideParams = (fname_cur, fname) => {
+            document.getElementById(`${fname_cur}Params`).style.display = fname === fname_cur ? "block" : "none";
+        };
+
+        const showAudioParams = () => {
+            const audioFilter = document.getElementById("audioFilter").value;
+            document.getElementById("audioParams").style.display = audioFilter ? "block" : "none";
+            showHideParams("gainCompressor", audioFilter);
+            showHideParams("denoiseDelay", audioFilter);
+            showHideParams("voiceEnhancement", audioFilter);
+            showHideParams("car", audioFilter);
+            showHideParams("phone", audioFilter);
+        };
+
+        const showVideoParams = () => {
+            const videoFilter = document.getElementById("videoFilter").value;
+            document.getElementById("videoParams").style.display = videoFilter ? "block" : "none";
+            showHideParams("frameInterpolate", videoFilter);
+            showHideParams("upscale", videoFilter);
+        };
+
+        const showStatus = (elementId, message, isSuccess = true) => {
+            const statusEl = document.getElementById(elementId);
+            statusEl.textContent = message;
+            statusEl.className = `status ${isSuccess ? 'success' : 'error'}`;
+            statusEl.style.display = 'block';
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        };
+
+        const uploadVideo = async () => {
+            const selectedFile = document.getElementById("uploadVideo").files[0];
+            
+            if (!selectedFile) {
+                showStatus("uploadStatus", "Please select a video file", false);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append("video", selectedFile);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                showStatus("uploadStatus", data.message || data.error, !!data.message);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus("uploadStatus", "Upload failed", false);
+            }
+        };
+
+        const deleteVideo = async () => {
+            try {
+                const response = await fetch('/delete', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                showStatus("deleteStatus", data.message, true);
+                
+                document.getElementById("videoContainer").style.display = "none";
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus("deleteStatus", "Delete failed", false);
+            }
+        };
+
+        const configureFilters = async () => {
+            const simpleFilters = [];
+            
+            for (const filter of filterList) {
+                if (filter.name === "grayscale") {
+                    simpleFilters.push("grayscale");
+                } else if (filter.name === "gainCompressor") {
+                    simpleFilters.push("volume_boost");
+                }
+            }
+            
+            try {
+                const response = await fetch('/configure', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({filters: simpleFilters})
+                });
+                
+                const data = await response.json();
+                alert(data.message);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert("Configuration failed");
+            }
+        };
+
+        const applyFilters = async () => {
+            try {
+                const response = await fetch('/apply', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                alert(data.message || data.error);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert("Filter application failed");
+            }
+        };
+
+        const stream = async () => {
+            const videoContainer = document.getElementById("videoContainer");
+            const videoElement = videoContainer.querySelector("video");
+            const sourceElement = videoElement.querySelector("source");
+            
+            sourceElement.src = "/stream?" + new Date().getTime();
+            videoContainer.style.display = "block";
+            videoElement.load();
+        };
+
+        // Initialize the page
+        showAudioParams();
+        showVideoParams();
+        refreshFiltersList();
+    </script>
+</body>
+</html>
