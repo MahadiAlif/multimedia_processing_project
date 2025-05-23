@@ -2,10 +2,13 @@ import numpy as np
 import soundfile as sf
 import subprocess
 import os
+from scipy.signal import butter, filtfilt
 
-def apply_preemphasis(input_path, output_path, alpha=0.97):
+def apply_voice_enhancement(input_path, output_path, alpha=0.97):
     """
-    Apply pre-emphasis filter: y[n] = x[n] - α * x[n-1]
+    Apply complete voice enhancement filter consisting of:
+    1. Pre-emphasis filter: y[n] = x[n] - α * x[n-1]
+    2. Band-pass filter (Butterworth) 800-6000 Hz
     """
     try:
         # Convert to absolute paths
@@ -40,13 +43,17 @@ def apply_preemphasis(input_path, output_path, alpha=0.97):
         audio_data, sample_rate = sf.read(extracted_audio_path)
         print(f"Audio loaded: shape={audio_data.shape}, sample_rate={sample_rate}")
         
-        # STEP 3: Apply pre-emphasis filter
+        # STEP 3: Apply complete voice enhancement filter
         if len(audio_data.shape) > 1:
             processed_audio = np.zeros_like(audio_data)
             for channel in range(audio_data.shape[1]):
-                processed_audio[:, channel] = preemphasis_filter(audio_data[:, channel], alpha)
+                # Apply pre-emphasis + band-pass to each channel
+                processed_audio[:, channel] = complete_voice_enhancement_filter(
+                    audio_data[:, channel], sample_rate, alpha
+                )
         else:
-            processed_audio = preemphasis_filter(audio_data, alpha)
+            # Mono audio
+            processed_audio = complete_voice_enhancement_filter(audio_data, sample_rate, alpha)
         
         # STEP 4: Save processed audio
         processed_audio_path = os.path.join(output_dir, 'processed_audio.wav')
@@ -78,30 +85,55 @@ def apply_preemphasis(input_path, output_path, alpha=0.97):
         # Check if output file was created
         if os.path.exists(output_path):
             print(f"Output file created successfully: {output_path}")
-            return True, "Pre-emphasis filter applied successfully"
+            return True, "Voice enhancement filter applied successfully"
         else:
             return False, "Output file was not created"
         
     except subprocess.CalledProcessError as e:
         print(f"FFmpeg error: {e.stderr}")
-        # Clean up temporary files
         cleanup_temp_files(output_dir)
         return False, f"FFmpeg failed: {e.stderr}"
         
     except Exception as e:
-        print(f"Pre-emphasis filter error: {str(e)}")
-        # Clean up temporary files
+        print(f"Voice enhancement filter error: {str(e)}")
         cleanup_temp_files(output_dir)
-        return False, f"Pre-emphasis filter failed: {str(e)}"
+        return False, f"Voice enhancement filter failed: {str(e)}"
 
-def cleanup_temp_files(output_dir):
-    """Clean up temporary audio files"""
-    temp_files = ['extracted_audio.wav', 'processed_audio.wav']
-    for temp_file in temp_files:
-        temp_path = os.path.join(output_dir, temp_file)
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-            print(f"Cleaned up: {temp_path}")
+def complete_voice_enhancement_filter(signal, sample_rate, alpha=0.97):
+    """
+    Apply complete voice enhancement as specified in PDF:
+    1. Pre-emphasis filter: y[n] = x[n] - α * x[n-1]
+    2. Band-pass filter (Butterworth) 800-6000 Hz
+    """
+    print("Applying pre-emphasis filter...")
+    
+    # STEP 1: Pre-emphasis filter
+    emphasized = preemphasis_filter(signal, alpha)
+    
+    print("Applying band-pass filter (800-6000 Hz)...")
+    
+    # STEP 2: Band-pass filter (Butterworth) 800-6000 Hz
+    # Design Butterworth band-pass filter
+    nyquist = sample_rate / 2
+    low_freq = 800 / nyquist    # Normalize to Nyquist frequency
+    high_freq = 6000 / nyquist  # Normalize to Nyquist frequency
+    
+    # Ensure frequencies are within valid range [0, 1]
+    low_freq = max(0.001, min(low_freq, 0.999))
+    high_freq = max(0.001, min(high_freq, 0.999))
+    
+    if low_freq >= high_freq:
+        high_freq = 0.999
+    
+    # Design 4th order Butterworth band-pass filter
+    b, a = butter(4, [low_freq, high_freq], btype='band')
+    
+    # Apply zero-phase filtering
+    filtered_signal = filtfilt(b, a, emphasized)
+    
+    print(f"Voice enhancement complete: Pre-emphasis + Band-pass (800-6000 Hz)")
+    
+    return filtered_signal
 
 def preemphasis_filter(signal, alpha=0.97):
     """
@@ -119,10 +151,19 @@ def preemphasis_filter(signal, alpha=0.97):
     
     return emphasized
 
+def cleanup_temp_files(output_dir):
+    """Clean up temporary audio files"""
+    temp_files = ['extracted_audio.wav', 'processed_audio.wav']
+    for temp_file in temp_files:
+        temp_path = os.path.join(output_dir, temp_file)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            print(f"Cleaned up: {temp_path}")
+
 def apply_audio_filter(filter_name, input_path, output_path, **kwargs):
     """Main function to apply audio filters"""
-    if filter_name == "preemphasis":
+    if filter_name == "voice_enhancement" or filter_name == "preemphasis":
         alpha = kwargs.get('alpha', 0.97)
-        return apply_preemphasis(input_path, output_path, alpha)
+        return apply_voice_enhancement(input_path, output_path, alpha)
     else:
         return False, f"Unknown audio filter: {filter_name}"
